@@ -1,0 +1,286 @@
+---
+title: "HW 2"
+author: "Liam Knight"
+date: "2026-02-12"
+output: html_document
+---
+
+```{r, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+packages <- c('knitr', 
+              'ggplot2', 
+              'dplyr', 
+              'tidyr', 
+              'gapminder', 
+              'ggplot2', 
+              'countrycode', 
+              'plotly', 
+              'readxl',
+              'useful')
+
+lapply(packages, library, character.only=TRUE)
+```
+
+
+
+### Question 1
+
+
+```{r, include=FALSE}
+#read in data
+gdp_per_cap <- 
+  read.csv(
+   "data/income_per_person_gdppercapita_ppp_inflation_adjusted.csv", 
+   header = TRUE, 
+   stringsAsFactors = FALSE,
+   check.names = FALSE
+   )
+life_exp <- 
+  read.csv(
+    "data/life_expectancy_years.csv",
+    header = TRUE,
+    stringsAsFactors = FALSE,
+    check.names = FALSE
+    )
+pop <-
+  read.csv(
+    "data/population_total.csv",
+    header = TRUE,
+    stringsAsFactors = FALSE,
+    check.names = FALSE
+  )
+
+#sanity check: missing data
+rows_with_issue_gdp <- gdp_per_cap |> 
+  mutate(row = row_number()) |>
+  filter(if_any(everything(), is.na) | if_any(where(is.numeric), ~ . <= 0)) |>
+  pull(row)
+if (length(rows_with_issue_gdp) == 0) message("No problematic rows in gdp_per_cap") else cat('gdp_per_cap issues in rows', rows_with_issue_gdp)
+
+rows_with_issue_pop <- pop |> 
+  mutate(row = row_number()) |>
+  filter(if_any(everything(), is.na) | if_any(where(is.numeric), ~ . <= 0)) |>
+  pull(row)
+if (length(rows_with_issue_pop) == 0) message("No problematic rows in pop") else cat('pop issues in rows', rows_with_issue_pop)
+
+rows_with_issue_life <- life_exp |> 
+  mutate(row = row_number()) |>
+  filter(if_any(everything(), is.na) | if_any(where(is.numeric), ~ . <= 0)) |>
+  pull(row)
+if (length(rows_with_issue_life) == 0) message("No problematic rows in life_exp") else cat('life_exp issues in rows', rows_with_issue_life)
+```
+
+
+```{r, include=FALSE}
+#wrangle data to resemble gapminder dataset
+years <- c(2:222)
+
+#pivot each dataset longer
+life_exp2 <- select(life_exp, country, all_of(years)) |>
+  pivot_longer(`1800`:`2020`, names_to = "year", values_to = "life_exp", values_drop_na = TRUE) |>
+  mutate(year = as.numeric(year))
+
+gdp_per_cap2 <- select(gdp_per_cap, country, all_of(years)) |>
+  pivot_longer(`1800`:`2020`, names_to = "year", values_to = "gdp_per_cap", values_drop_na = TRUE) |>
+  mutate(year = as.numeric(year))
+
+pop2 <- select(pop, country, all_of(years)) |>
+  pivot_longer(`1800`:`2020`, names_to = "year", values_to = "pop", values_drop_na = TRUE) |>
+  mutate(year = as.numeric(year))
+
+#sanity check: no NA values
+sum(is.na(life_exp2))
+sum(is.na(gdp_per_cap2))
+sum(is.na(pop2))
+
+#create dataframe
+dat <- life_exp2 |>
+  left_join(pop2, by = join_by(country, year)) |>
+  left_join(gdp_per_cap2, by = join_by(country, year)) |>
+  mutate(continent = countrycode(country, origin = "country.name", destination = "continent")) |>
+  mutate(across(c(country, continent), as.factor)) |>
+  select(country, continent, year, life_exp, pop, gdp_per_cap) |>
+  #filter for only countries that have data for all 221 years
+  group_by(country) |>
+  mutate(n_obvs = n()) |>
+  ungroup() |>
+  filter(n_obvs == 221) |>
+  select(-n_obvs)
+
+#sanity check: correct variable types
+is.numeric(dat$year)
+is.factor(dat$country) 
+is.factor(dat$continent) 
+
+write.csv(dat, "/Users/liamknight/Desktop/Documents/Graduate/Spring 2026/STATS 633/STAT-633-Data-Visualization/HW/HW3")
+
+```
+
+```{r, echo=FALSE, warning=FALSE}
+gg <- 
+  ggplot(dat, aes(gdp_per_cap, life_exp, color = continent)) +
+    geom_point(aes(size = pop, frame = year, ids = country)) +
+    scale_x_log10() + 
+    theme(legend.title = element_blank()) 
+
+ggplotly(gg)
+```
+
+### Question 2
+
+
+```{r, include=FALSE, warning=FALSE}
+#read in data and check for initial issues
+
+#since table 2 only goes from 1948-2021, drop row for 1947 from table 1
+raw_table1 <- read_xlsx("data/table1.xlsx", skip = 11) |>
+  filter(Year != 1947)
+#since table 1 is missing data for 1984, drop row from table 2 to match
+raw_table2 <- read_xlsx("data/table2.xlsx", skip = 11) |>
+  filter(Year != 1984)
+
+#sanity check: check number of rows prior to dropping any further values, should be 73 for both
+nrow(raw_table1) 
+nrow(raw_table2) 
+
+#sanity check: check for NA and other problematic values
+#find any rows in table 1 that have missing values
+rows_with_issue1 <- raw_table1 |> 
+  mutate(row = row_number()) |>
+  filter(if_any(everything(), is.na)) |>
+  pull(row)
+
+if (length(rows_with_issue1) == 0) message("No problematic rows in table1") else cat('table1 issues in rows', rows_with_issue1)
+
+#find any rows in table 2 that have missing or negative values (negative values would be nonsensical for an unemployment rate variable)
+rows_with_issue2 <- raw_table2 |>
+  mutate(row = row_number()) |>
+  filter(if_any(everything(), is.na) | if_any(where(is.numeric), ~ . < 0)) |>
+  pull(row)
+
+if (length(rows_with_issue2) == 0) message("No problematic rows in table2") else cat('table2 issues in rows', rows_with_issue2)
+
+#row 6 has an NA value for Sep 1953, but seeing as we have the monthly values for every other month that year and the annual average, based on that data, we can calculate the missing value for Sep 1953 in order to avoid another issue of missing data
+#i.e., (2.9 + 2.6 + 2.6 + 2.7 + 2.5 + 2.5 + 2.6 + 2.7 + 3.1 + 3.5 + 4.5 + sep_1953)/12 = 2.9
+#thus, sep_1953 = 2.6
+sep_1953 <- 2.6
+raw_table2[6, 10] <- sep_1953
+
+#similarly for the negative value in April 1977, the true value can also be imputed
+#(22.5 + 7.0 + 7.2 + 6.9 + 7.0 + 6.8 + 6.8 + 6.8 + 6.4 + apr_1977)/12 = 7.1
+apr_1977 <- 7.8
+raw_table2[30, 5] <- apr_1977
+
+```
+
+```{r, include=FALSE, warning=FALSE}
+#tidy each dataset
+
+months <- c(2:13)
+
+#pivot
+table1 <- raw_table1 |>
+  pivot_longer(months, names_to = 'month', values_to = 'cpi') |>
+  rename(half1_half2 = 'HALF1/HALF2') |>
+  rename(year = Year)
+
+#pivot and remove row with missing value
+table2 <- raw_table2 |>
+  pivot_longer(months, names_to = 'month', values_to = 'unemployment_rate') |>
+  rename(annual = Annual) |>
+  rename(year = Year) 
+
+#sanity check: for both tables, correct number of rows and cols. should be 4 cols for both, and 876 rows for each (2021 - 1948 = 73 year span, times 12 months for each = 876)
+nrow(table1) 
+ncol(table1) 
+nrow(table2) 
+ncol(table2) 
+
+#sanity check: ensure that there are no NA values now
+sum(is.na(table1)) 
+sum(is.na(table2))
+
+```
+
+
+```{r, include=FALSE, warning=FALSE}
+#join tables by the column names they share (year, month)
+table <- table1 |>
+  left_join(table2, by = intersect(colnames(table1), colnames(table2))) |>
+  select(year, month, cpi, unemployment_rate) 
+
+#sanity check: tables were joined by year and month as desired
+intersect(colnames(table1), colnames(table2)) == c('year', 'month')
+
+#sanity check: no more NA values 
+sum(is.na(table))
+
+#sanity check: still correct number of rows and columns
+nrow(table) == 876
+ncol(table) == 4
+
+#visualizing table for reference
+#kable(head(table), caption = "Glimpse of tidy dataframe")
+ 
+```
+
+
+In order to be analyze relationships between CPI (consumer price index) and unemployment rates across time, the variables we will keep are: the CPI variable (`cpi`), the unemployment rate variable (`unemployment_rates`), one variable each for year and month (`year` and `month`). After using the annual average column (`annual`) to fill in the missing monthly unemployment data for September 1953, as noted below, I discarded that variable. Similarly, I discarded the `half1_half2` variable. However, if I wanted to analyze annual averages over time, I would have kept both of those variables, and wrangled the `half1_half2` variable to provide an annual CPI average to contrast with the yearly unemployment rate average.
+
+I found several peculiarities through multiple sanity checks. In table 1, the row for the year 1947 was not located sequentially (prior to 1948 in ascending order as the rest of the years were arranged), but in fact was located in the dataset between the years 1967 and 1968, so it wasn't immediately clear from a quick visual scan that the data began in 1947. Table 1 was also missing data for the year 1984.
+
+In table 2, there is a negative value for April 1977, and September 1953 data was missing. The negative value in 1977 is peculiar as it is nonsensical to have a negative unemployment rate. To deal with both problems, it was the case that since we have the data from the other 11 months in both years, and the annual averages for both years, it was possible to calculate what the missing values were.
+
+Additionally, all the values for 1961 are 0.0. Based on the rest of the data, it seems unlikely that these are the true values for 1961. It might be reasonable to consider this missing data, but I decided to keep it for now prior to doing any analysis. Based on what analysis I decided to do later, I might decide to treat this year as missing data and drop it. 
+
+Another peculiarity is that I noticed that in table2.xlsx, the data for each month is given with one decimal place, but the data under the "Annual" column is given as integers. Assuming that the "Annual" column in table 2 indicates the annual average unemployment rate for that year, it would be important to make adjustments for the rounding that occurs. For example, in the year 1948 in table2.xlsx, the average unemployment rate as calculated directly from the 12 months of data is 3.8, but the Annual variable is given as 4. Fascinatingly, once the .xlsx file was read into the .rmd file with the `read_xlsx()` function, the values in the `Annual` column became a double type variable, with values given to one decimal point, rather than integers as in the .xlsx file.
+
+In order to deal with handling `NA` values, since there was no data from 1947 in table 2 and no data from 1984 in table 1, I deleted the row of data from 1947 from table 1 and the 1984 row from table 2 so as to not end up with years in the final tidy dataframe that contained data only about CPI and nothing about unemployment rates, or vice versa, as for any purposes of comparison of CPI and unemployment rates, those years would be useless. 
+
+
+### Question 3
+
+```{r, echo=FALSE}
+singer <- readRDS("data/Cleveland_singer.rds")
+```
+
+- In Fig. 1.2, we learn about the distribution of singer heights within each of the eight categories by histograms that show the percentage of singers within a category that are of a certain height. For example, we can see that approximately 20% of the first bass singers are 70 inches tall, and if we want to know the percentage of first sopranos that are 65 inches tall, we can find out that the proportion is approximately 40%. Thus, we can visualize roughly what the most "popular" heights are within each category of singer, and compare the distributions to each other. 
+
+  In contrast, Fig 2.1 displays similar information, but in the form of quantile plots rather than histograms. From these plots we can identify exactly which height corresponds to different quantiles we might be interested in. For example, we can identify that for the second basses, the 0.5 quantile, also known as the median, lies at around 72 inches, which means that half of the second basses are less than or equal to 72 inches tall. We can also find out, for each specific height within a category, the count for how many singers have that height.
+
+  In Fig 1.2, it is easier to immediately visualize what the distribution of heights within a category looks like, in terms of the general shape of the histogram and where along the spectrum of height it lands in terms of minimum and maximum values. For example, the first tenors are of relatively similar heights with similar proportions across different heights, but we see a much larger inequality of proportions in the first sopranos, where approximately 40% are 65 inches tall, but several heights are represented only by 1-2% of the individuals. But in Fig 1.2, without knowing the total number of singers in each group (which is not given), it is impossible to tell in terms of counts, how many singers have each height. It is also difficult to impossible to tell where the landmark quantiles such as 0.25, 0.5, and 0.75 lie. 
+
+  In contrast, we can see where the quantiles lie very easily in Fig 2.1, not only the three major ones, but also a very good estimate for any at all between 0 and 1.
+Additionally, by counting the points that align with each height, we can also tell the counts of how many singers have each height, and of the total number of singers in each group. Though in this case the eight groups seem to have relatively similar numbers of members, in some cases there might be significant discrepancies in group sizes, which we would be able to see from the quantile plots, but not at all from Fig 1.2, which relays only information about percentages of the group.
+
+- Extrapolation refers to estimating the value of a variable that we do not have actual observed data about based on the relationships between variables that we do have data about, where these new estimated values fall outside of the range of the observed data. Interpolation is a similar concept, but refers to the estimation of unknown values that lie within the range of the observed data. Since it involves estimation of values beyond the range of observed data (both higher and lower than our range), extrapolation involves more dangerous assumptions than interpolation and is more likely to lead to incorrect or nonsensical estimations.
+
+- Interpolated and extrapolated quantile values should be used when we need a quantile whose f-value does not happen to correspond to any of the values of $f_i$ we have in our observed data. 
+
+- In the singers data, we have $f_1 = 0.024$, which means that we have an observed data point that gives us exactly the 0.24th quantile, but since $f_2 = 0.07$, if we wanted to know what f-value would give us, for example, the 0.03rd quantile, we would have to interpolate. 
+
+- Similarly, if we wanted to know what f-value would give us the 0.01 quantile, we would need to extrapolate, as that value would fall below the range of our data.
+
+### Question 4
+
+```{r, echo=FALSE}
+#tidy anscombe dataset
+anscombe_tidy <- anscombe |>
+  pivot_longer(everything(), names_to = "variable", values_to = "value") |>
+  arrange(variable) |>
+  mutate(y_value = value) |>
+  shift.column(columns = "y_value", len = 44, up = TRUE) |>
+  rename(x = "value", y = "y_value.Shifted", x_value = "variable") |>
+  mutate(dataset = case_when(
+      x_value == "x1" ~ 1,
+      x_value == "x2" ~ 2,
+      x_value == "x3" ~ 3,
+      x_value == "x4" ~ 4)) |>
+  select(dataset, x, y)
+
+kable(head(anscombe), caption = "For comparson: head of original `anscombe` dataset")
+kable(head(anscombe_tidy), caption = "For comparson: head of tidy `anscombe` dataset")
+```
+
+To tidy the `anscombe` dataset, I first used the `pivot_longer()` function to pivot all columns so that there was a column called `variable` with the `x_i` or`y_i` character string as values, and another column called `value` with the value associated with each `x_i` or`y_i`. I arranged the rows in ascending order so that all of the `x_1` values were listed first, next the `x2`, etc. Next I created a new column called `y_value` that duplicated all of the values in the `value` column, a column which would eventually end of as storing the `y` values. I then used the `shift.column()` function from the `useful` package to shift all the values associated with the `y_i` rows, 44 rows up, to align the values in the correct rows corresponding to the same `x_i` pair it should be associated with. This meant that for each `x_i, y_i` observation, the associated `x` and `y` values would be stored in the same row, each in their own column. Then I renamed some variables for clarity. Finally, I created a new variable `dataset` that listed whether a pair was part of dataset 1, 2, 3, or 4, based on whether it had come from an `x_1, y_1`, `x_2, y_2`, `x_3, y_3`, or `x_4, y_4` value pair respectively.
