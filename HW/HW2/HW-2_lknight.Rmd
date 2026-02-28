@@ -113,7 +113,6 @@ is.numeric(dat$year)
 is.factor(dat$country) 
 is.factor(dat$continent) 
 
-write.csv(dat, "/Users/liamknight/Desktop/Documents/Graduate/Spring 2026/STATS 633/STAT-633-Data-Visualization/HW/HW3")
 
 ```
 

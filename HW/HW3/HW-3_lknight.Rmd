@@ -1,0 +1,211 @@
+---
+title: "HW 3"
+author: "Liam Knight"
+date: "2026-02-18"
+output: html_document
+---
+
+```{r, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+packages <- c('knitr', 
+              'tidyverse', 
+              'janitor',
+              'plotly',
+              'tidyverse',
+              'shiny',
+              'gapminder',
+              'rsconnect')
+
+lapply(packages, library, character.only=TRUE)
+```
+
+
+# Question 1
+
+```{r}
+#read in data
+recreated_gapminder <- 
+  read.csv(
+   "data/recreated_gapminder.csv", 
+   header = TRUE, 
+   stringsAsFactors = FALSE,
+   check.names = FALSE
+   ) 
+  
+#wrangle data
+us_dat <- recreated_gapminder |>
+  #use janitor to clean extra (unnamed) row index column
+  clean_names() |>
+  filter(country == 'United States') |>
+  rename(us_life_exp = "life_exp") |>
+  select(year, us_life_exp)
+
+#join US life expectancies to main dataset 
+dat <- recreated_gapminder |>
+  clean_names() |>
+  left_join(y = us_dat, by = 'year') |>
+  mutate(prop = life_exp/us_life_exp) 
+  
+```
+
+
+```{r, warning=FALSE}
+#create plot
+gg <- 
+  ggplot(dat, aes(gdp_per_cap, prop, color = continent)) +
+  geom_point(aes(size = pop, frame = year, ids = country)) +
+  geom_point(
+    data = filter(dat, country == "United States"),
+    aes(x = gdp_per_cap, y = prop, size = pop, frame = year, ids = country),
+    colour = "purple", fill = "purple"
+    ) +
+  scale_x_log10() + 
+  theme(legend.title = element_blank(),
+        plot.title = element_text(size = 12, hjust = 0.5, margin = margin(b = 2)),) +
+  labs(
+    title = "Life expectancies as relative to the United States vs GDP per capita \n(United States in purple)", 
+    x = "GDP per capita",
+    y = "Life expectancy relative to the US"
+    ) +
+  geom_hline(yintercept = 1)
+
+ggplotly(gg)
+
+```
+
+
+
+
+
+# Question 3
+
+
+
+```{r}
+#link to Shiny app:
+#https://liamknight.shinyapps.io/gapminderapp/
+
+df <- gapminder::gapminder
+
+ui <- fluidPage(
+  titlePanel("Gapminder"),
+  sidebarLayout(
+    sidebarPanel(
+      "Interactive plotting of gapminder data using R shiny",
+      #checklist for "Choose a continent"
+      checkboxGroupInput(
+        inputId = "continent",
+        label = "Choose a continent",
+        choices = levels(df$continent),
+        selected = levels(df$continent)
+      ),
+      #slider for "Income Percentiles of interest"
+      sliderInput(
+        inputId = "percentile",
+        label = "Income percentiles of interest",
+        min = 0,
+        max = 100,
+        value = c(0,100)
+      ),
+      #slider for "Year"
+      sliderInput(
+        inputId = "year",
+        label = "Year",
+        min = 1952,
+        max = 2007,
+        value = 1952,
+        step = 5,
+        sep = "",
+        animate = animationOptions(interval = 500, loop = FALSE)
+      )
+    ),
+    mainPanel(
+      plotOutput(outputId = "gapminder_plot")
+    )
+  )
+)
+
+server <- function(input, output) {
+  output$gapminder_plot <- renderPlot({
+    #store input selections
+    selected_year <- input$year
+    selected_continents <- input$continent    
+    selected_percentile <- input$percentile
+
+    df |>
+      #group by year so that percentiles are recalculated based on the dataset
+      #for each year, rather than GDPs for 1952 being compared against
+      #GDPs for 2007, for example
+      group_by(year) |>
+      #create new variable for percentile
+      mutate(percentile = 100 * percent_rank(gdpPercap)) |>
+      ungroup() |>
+      #filter by input selections
+      filter(year == selected_year) |>          
+      filter(continent %in% selected_continents) |> 
+      filter(percentile <= selected_percentile) |>
+      ggplot(aes(gdpPercap, lifeExp, color = continent)) +
+        scale_x_log10(limits = c(1e2, 1e5)) +
+        geom_point(aes(size = pop)) +
+        ylim(0, 80) +
+        theme(legend.title = element_blank())
+  })
+}
+
+shinyApp(ui, server)
+```
+
+    
+Below, we manipulate our data by defining that we will filter only for the continents of Asia and Africa. However, in one plot, we have filtered for continent prior to calculating percentiles and filtering on those percentiles, and in the other plot, we calculate the percentiles and filter by them first, then filter by continent. Note that the two plots look different. 
+
+When we calculate the percentiles AFTER filtering by continent, the percentiles are calculated on a different dataset: they are calculated only for the data for the countries in Africa and Asia, rather than on the entire global set of countries. This means that the percentiles reflect only where a given value lies in terms of quantile rank for the set of countries in Asia and Africa in that year. Therefore, we are seeing insights about where a country ranks within those two continents.
+
+On the other hand, when we calculate the percentiles FIRST, then filter by continent second, we end up seeing countries that fell in the 25th percentile globally for 1952, rather than only countries that fell in the 25th percentile in Africa and Asia that year. Therefore, we see more countries on the plot, and we are seeing insights about where a country ranks within the entire global set of countries across all continents.
+
+
+```{r}
+#Individual interactive plots
+
+#manipulate selecting continents
+sel_continents <- c("Africa", "Asia")
+
+#year 1952, only countries within the 25th percentile, filtering by continent BEFORE percentile
+df_1952_25_1 <- df |>
+  #filter
+  filter(year == 1952) |>
+  filter(continent %in% sel_continents) |>
+  mutate(percentile = 100 * percent_rank(gdpPercap)) |>
+  filter(percentile <= 25) 
+  
+gg_1952_25_1 <- ggplot(df_1952_25_1, aes(gdpPercap, lifeExp, color = continent)) +
+  scale_x_log10(limits = c(1e2, 1e5)) +
+  geom_point(aes(size = pop)) +
+  ylim(0, 80) +
+  theme(legend.title = element_blank()) +
+  labs(title = "1952, 25th percentile, filter for continent BEFORE percentile")
+
+ggplotly(gg_1952_25_1)
+
+
+
+#year 1952, only countries within the 25th percentile, filtering by continent AFTER percentile
+df_1952_25_2 <- df |>
+  filter(year == 1952) |>
+  mutate(percentile = 100 * percent_rank(gdpPercap)) |>
+  filter(percentile <= 25) |>
+  filter(continent %in% sel_continents)
+  
+gg_1952_25_2 <- ggplot(df_1952_25_2, aes(gdpPercap, lifeExp, color = continent)) +
+  scale_x_log10(limits = c(1e2, 1e5)) +
+  geom_point(aes(size = pop)) +
+  ylim(0, 80) +
+  theme(legend.title = element_blank()) + 
+  labs(title = "1952, 25th percentile, filter for continent AFTER percentile")
+
+ggplotly(gg_1952_25_2)
+
+
+
+```
+
