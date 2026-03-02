@@ -2,9 +2,9 @@
 
 ## Skills
 
-- RMarkdown and preattentive search, gestalt rules of data visualization (HW1)
-- Review of `dplyr`, `tidyr` (HW2)
-- `ggplot`, `RShiny` (HW3)
+- Basic principles of data visualization: preattentive search, gestalt rules (HW1)
+- Data manipulation: `dplyr`, `tidyr` (HW2)
+- Data visualization with `ggplot` and app deployment with `RShiny` (HW3)
 
 ## Relevant links:
 
