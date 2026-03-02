@@ -1,4 +1,5 @@
 library(tidyverse)
+library(scales)
 
 df <- gapminder::gapminder
 
@@ -60,10 +61,23 @@ server <- function(input, output) {
       filter(continent %in% selected_continents) |> 
       filter(percentile <= selected_percentile) |>
       ggplot(aes(gdpPercap, lifeExp, color = continent)) +
-      scale_x_log10(limits = c(1e2, 1e5)) +
+      scale_x_log10(
+        limits = c(1e2, 1e5),
+        breaks = c(100, 1000, 10000, 100000),
+        labels = comma) +
+      scale_size_continuous(
+        name = "Population size", 
+        range = c(1, 8), 
+        labels = comma) +
+      scale_color_discrete(name = "Continent") +
       geom_point(aes(size = pop)) +
       ylim(0, 80) +
-      theme(legend.title = element_blank())
+      labs(x = "GDP per capita",
+           y = "Life expectancy (years)",
+           title = "Global life expectancies as a function of gross domestic product (GDP) per capita",
+           subtitle = "1952-2007",
+           color = "Continent",
+           size = "Population size")
   })
 }
 

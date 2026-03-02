@@ -12,7 +12,6 @@ packages <- c('knitr',
               'tidyverse', 
               'janitor',
               'plotly',
-              'tidyverse',
               'shiny',
               'gapminder',
               'rsconnect')
@@ -20,8 +19,20 @@ packages <- c('knitr',
 lapply(packages, library, character.only=TRUE)
 ```
 
+Link to Shiny app in Question 3: https://liamknight.shinyapps.io/gapminderapp/ 
 
 # Question 1
+
+Create a graph similar to and based on the work you did in Homework 2, Question 1. This time, depict on the y-axis the life expectancy of each country relative to the life expectancy in the US (for every given year). That is, the y-axis will present data like 
+
+`(life expectancy for Cuba in 1919) / (life expectancy for the US in 1919)`, 
+`(life expectancy for Cuba in 1920) / (life expectancy for the US in 1920)`, 
+`(life expectancy for Iraq in 1919) / (life expectancy for the US in 1919)`, 
+`(life expectancy for Iraq in 1920) / (life expectancy for the US in 1920)`, etc.
+
+Hint: if you do this correctly, the point that represents the US should always have a y-value of 1. Add a layer to the plot that highlights the marker for the US throughout the animated sequence (in any reasonable way you choose). Add a layer to the plot that shows a horizontal line at the y-value of 1.
+
+**Question 1 Solution:**
 
 ```{r}
 #read in data
@@ -75,16 +86,31 @@ ggplotly(gg)
 ```
 
 
+# Question 2
 
+(no question 2)
 
 
 # Question 3
 
+Complete our gapminder app so that it uses ggplot to show a similar plot to the gapminder plot from homework 1 question 2.1 (same as in the introduction):
 
+- Data is filtered first according to year
+- Then, data is filtered according to the continent
+- Lastly, (a feature we add here to the original functionality) also filter the data according to quantiles of interest in income (so that if the range is 0-50, we’ll see the lower half of countries for a given year)
+- The plot should be based on ggplot (not using ggplotly here).
+- You may use the small gapminder dataset as demonstrated in class or utilize the larger one you prepared in the second homework assignment.
+
+In the HTML you submit, please comment on the meaning of the additional filtering by income quantiles in step 3. One way to help clarify to yourself this meaning may be performing the filtrations in a different order. How do the results differ? What kind of insights are can be made by the different methods? In order to exemplify your arguments, add to your answer individual interactive plots created with ggplotly for specific years (no animation) where the data are filtered by quantiles of interest and year before being sent to ggplot (i.e., you don’t need to add functionality to the interactive plot, use it on data that you manipulate in advance).
+
+**Question 3 Solution:**
+
+
+Link to Shiny app:
+https://liamknight.shinyapps.io/gapminderapp/
 
 ```{r}
-#link to Shiny app:
-#https://liamknight.shinyapps.io/gapminderapp/
+
 
 df <- gapminder::gapminder
 
@@ -146,10 +172,23 @@ server <- function(input, output) {
       filter(continent %in% selected_continents) |> 
       filter(percentile <= selected_percentile) |>
       ggplot(aes(gdpPercap, lifeExp, color = continent)) +
-        scale_x_log10(limits = c(1e2, 1e5)) +
-        geom_point(aes(size = pop)) +
-        ylim(0, 80) +
-        theme(legend.title = element_blank())
+      scale_x_log10(
+        limits = c(1e2, 1e5),
+        breaks = c(100, 1000, 10000, 100000),
+        labels = comma) +
+      scale_size_continuous(
+        name = "Population size", 
+        range = c(1, 8), 
+        labels = comma) +
+      scale_color_discrete(name = "Continent") +
+      geom_point(aes(size = pop)) +
+      ylim(0, 80) +
+      labs(x = "GDP per capita",
+           y = "Life expectancy (years)",
+           title = "Global life expectancies as a function of gross domestic product (GDP) per capita",
+           subtitle = "1952-2007",
+           color = "Continent",
+           size = "Population size")
   })
 }
 

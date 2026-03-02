@@ -5,7 +5,7 @@ account: liamknight
 server: shinyapps.io
 hostUrl: https://api.shinyapps.io/v1
 appId: 16754316
-bundleId: 11625648
+bundleId: 11650701
 url: https://liamknight.shinyapps.io/gapminderapp/
 version: 1
 asMultiple: FALSE
