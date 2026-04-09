@@ -1,0 +1,94 @@
+---
+title: "HW4"
+author: "Liam Knight"
+date: "2026-03-06"
+output: html_document
+editor_options: 
+  markdown: 
+    wrap: sentence
+---
+
+```{r, include=FALSE}
+library(plotly)
+library(tidyverse)
+```
+
+Recall the histogram for `cut` categories from the `diamonds` data set:
+
+```{r}
+diamonds %>%
+  plot_ly( x = ~cut, showlegend = FALSE ) %>%
+  add_histogram(hoverinfo = "x+y") %>%
+  dplyr::group_by( cut ) %>%
+  summarise(n = n()) %>%
+  add_text(
+    text = ~scales::comma(n), y = ~n,
+    textposition = "top middle",
+    cliponaxis = FALSE,
+    hoverinfo = "none"
+  )
+```
+
+Please add to it the following changes:
+
+1.  make the bar chart a stacked bar chart: so that the $x$-axis values are still according to the variable `cut`, but the internal division of each bar is according to the `clarity` variable.
+2.  change the colors of the bar segments to be in accordance with the `"Blues"` palette.
+3.  make sure to have the tooltip content for each bar segment as it is in the below plot (“The cut is … such diamonds!”)
+4.  set the color of the font in the tooltip to red (hint: `hoverlabel`).
+5.  set the background of the tooltip to yellow.
+6.  set the background color of the entire plot to `"pink"`.
+7.  set the background color of the plotting area to `"lightgray"`.
+8.  set the borders of the bars to black and thickness (`span`) of 1.
+9.  set the color of the x-axis labels to `"green"`.
+10. set the title of the x-axis to `"Cut"` (instead of “cut”).
+11. set the color of the x-axis title to `"darkred"` and its font to `"Times New Roman"`.
+12. change the color of the y-axis labels to `"darkorange"` (be careful not to change other things with it).
+13. remove the y-axis title.
+14. set the left margin of the plot to 25px.
+15. change the color of the text values to `"red"`. No tooltip is associated with these values.
+16. add the title `"Ugly, ugly plot"` in the `"Old Standard TT"` font at the top left corner.
+
+**Solution:**
+
+```{r}
+diamonds %>%
+  select(cut, clarity) %>%
+  plot_ly(x = ~cut, showlegend = FALSE, colors = "Blues") %>%
+  add_histogram(color = ~clarity, 
+                marker = list(line = list(color = "black", 
+                                          width = 1)
+                              ),
+                hoverlabel = list(bgcolor = "yellow",
+                                  font = list(color = "red")
+                                  ),
+                hovertemplate = "The cut is %{x},\n the clarity is %{fullData.name},\n and there are %{y} such diamonds!<extra></extra>"
+                ) %>%
+  layout(barmode = "stack", 
+         margin = list(l = 25),
+         title = list(text = "Ugly, ugly plot", 
+                      font = list(family = "Old Standard TT"), 
+                      x = 0
+                      ),
+         paper_bgcolor = "pink",
+         plot_bgcolor = "lightgray",
+         xaxis = list(title = list(text ="Cut", 
+                                   font = list(color = "darkred",
+                                               family = "Times New Roman")
+                                   ),
+                      tickfont = list(color = "green")
+                      ),
+         yaxis = list(title = "",
+                      tickfont = list(color = "darkorange")
+                      )
+         ) %>%
+  dplyr::group_by(cut) %>%
+  summarise(n = n()) %>%
+  add_text(
+    text = ~scales::comma(n), y = ~n,
+    textfont = list(color = "red"),
+    textposition = "top middle",
+    cliponaxis = FALSE,
+    hoverinfo = "none"
+  )
+
+```
