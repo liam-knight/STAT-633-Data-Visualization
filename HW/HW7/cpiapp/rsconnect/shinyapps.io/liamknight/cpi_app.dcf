@@ -1,0 +1,13 @@
+name: cpi_app
+title: cpi_app
+username: liamknight
+account: liamknight
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 17095803
+bundleId: 11828081
+url: https://liamknight.shinyapps.io/cpi_app/
+version: 1
+asMultiple: FALSE
+asStatic: FALSE
+ignoredFiles: data/gdp_world.csv

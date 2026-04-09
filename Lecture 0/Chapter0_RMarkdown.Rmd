@@ -1,0 +1,23 @@
+---
+title: 'RMarkdown: Basics'
+output: 
+  html_document:
+  toc: FALSE
+number_sections: TRUE
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+packages <- c('knitr', 
+              'ggplot2', 
+              'dplyr', 
+              'tidyr', 
+              'ggplot2')
+
+lapply(packages, library, character.only=TRUE)
+```
+
+------------------------------------------------------------------------
+
+# Question 1
